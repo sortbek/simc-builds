@@ -1,0 +1,137 @@
+name: Build SimC
+
+on:
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+        description: "nightly or weekly"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+            artifact: simc.exe
+            build_script: |
+              cmake -B build -G "Visual Studio 17 2022" -A x64 \
+                -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
+                -DCMAKE_CXX_FLAGS_RELEASE="/O2 /Ob3 /GL /fp:fast /DNDEBUG" \
+                -DCMAKE_EXE_LINKER_FLAGS_RELEASE="/LTCG"
+              cmake --build build --config Release --target simc
+              cp build/Release/simc.exe simc.exe
+          - os: ubuntu-latest
+            name: linux
+            artifact: simc
+            build_script: |
+              cd engine
+              make LTO=1 NO_DEBUG=1 -j$(nproc) OPENSSL=0 OPTS="-ffast-math -fomit-frame-pointer"
+              cp simc ../simc
+          - os: macos-latest
+            name: macos
+            artifact: simc
+            build_script: |
+              cd engine
+              make LTO=1 NO_DEBUG=1 -j$(sysctl -n hw.ncpu) OPENSSL=0 OPTS="-ffast-math -fomit-frame-pointer"
+              cp simc ../simc
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout simc
+        uses: actions/checkout@v4
+        with:
+          repository: simulationcraft/simc
+          fetch-depth: 1
+
+      - name: Get simc commit SHA
+        id: sha
+        shell: bash
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build simc
+        shell: bash
+        run: ${{ matrix.build_script }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simc-${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          repository: simulationcraft/simc
+          fetch-depth: 1
+
+      - name: Get simc commit SHA
+        id: sha
+        shell: bash
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate release tag
+        id: tag
+        shell: bash
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          TYPE="${{ inputs.release_type }}"
+          SHA="${{ steps.sha.outputs.sha }}"
+          echo "tag=${TYPE}-${DATE}" >> "$GITHUB_OUTPUT"
+          echo "name=SimC ${TYPE^} — ${DATE} (${SHA})" >> "$GITHUB_OUTPUT"
+
+      - name: Package binaries
+        shell: bash
+        run: |
+          mkdir -p release
+
+          # Windows
+          cd artifacts/simc-windows
+          zip ../../release/simc-windows-x64.zip simc.exe
+          cd ../..
+
+          # Linux
+          chmod +x artifacts/simc-linux/simc
+          cd artifacts/simc-linux
+          tar czf ../../release/simc-linux-x64.tar.gz simc
+          cd ../..
+
+          # macOS
+          chmod +x artifacts/simc-macos/simc
+          cd artifacts/simc-macos
+          tar czf ../../release/simc-macos-arm64.tar.gz simc
+          cd ../..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.name }}
+          body: |
+            **${{ inputs.release_type }}** build of [SimulationCraft](https://github.com/simulationcraft/simc) from commit `${{ steps.sha.outputs.sha }}`.
+
+            ## Downloads
+            | Platform | File |
+            |----------|------|
+            | Windows x64 | `simc-windows-x64.zip` |
+            | Linux x64 | `simc-linux-x64.tar.gz` |
+            | macOS ARM64 | `simc-macos-arm64.tar.gz` |
+          files: release/*
+          prerelease: ${{ inputs.release_type == 'nightly' }}
