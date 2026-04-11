@@ -14,39 +14,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            name: windows
-            artifact: simc.exe
-            install_deps: ""
-            build_script: |
-              cmake -B build -G "Visual Studio 17 2022" -A x64 \
-                -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
-                -DCMAKE_CXX_FLAGS_RELEASE="/O2 /Ob3 /GL /fp:fast /DNDEBUG" \
-                -DCMAKE_EXE_LINKER_FLAGS_RELEASE="/LTCG"
-              cmake --build build --config Release --target simc
-              cp build/Release/simc.exe simc.exe
           - os: ubuntu-latest
             name: linux
             artifact: simc
-            install_deps: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
-            build_script: |
-              cmake -B build \
-                -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CXX_FLAGS_RELEASE="-O2 -ffast-math -fomit-frame-pointer -DNDEBUG"
-              cmake --build build --target simc -j$(nproc)
-              cp build/simc simc
           - os: macos-latest
             name: macos
             artifact: simc
-            install_deps: ""
-            build_script: |
-              cmake -B build \
-                -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CXX_FLAGS_RELEASE="-O2 -ffast-math -fomit-frame-pointer -DNDEBUG"
-              cmake --build build --target simc -j$(sysctl -n hw.ncpu)
-              cp build/simc simc
+          - os: windows-latest
+            name: windows
+            artifact: simc.exe
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.name }})
@@ -63,14 +39,37 @@ jobs:
         shell: bash
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Install dependencies
-        if: matrix.install_deps != ''
-        shell: bash
-        run: ${{ matrix.install_deps }}
+      - name: Install dependencies (Linux)
+        if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
 
-      - name: Build simc
-        shell: bash
-        run: ${{ matrix.build_script }}
+      - name: Build simc (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          cmake -B build \
+            -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O2 -ffast-math -fomit-frame-pointer -DNDEBUG"
+          cmake --build build --target simc -j$(nproc)
+          cp build/simc simc
+
+      - name: Build simc (macOS)
+        if: matrix.name == 'macos'
+        run: |
+          cmake -B build \
+            -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O2 -ffast-math -fomit-frame-pointer -DNDEBUG"
+          cmake --build build --target simc -j$(sysctl -n hw.ncpu)
+          cp build/simc simc
+
+      - name: Build simc (Windows)
+        if: matrix.name == 'windows'
+        shell: cmd
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_GUI=OFF -DBUILD_TESTING=OFF -DCMAKE_CXX_FLAGS_RELEASE="/O2 /Ob3 /GL /fp:fast /DNDEBUG" -DCMAKE_EXE_LINKER_FLAGS_RELEASE="/LTCG"
+          cmake --build build --config Release --target simc
+          copy build\Release\simc.exe simc.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
