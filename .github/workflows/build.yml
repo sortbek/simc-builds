@@ -21,7 +21,7 @@ jobs:
             name: linux-arm64
             artifact: simc
           - os: macos-latest
-            name: macos
+            name: macos-arm64
             artifact: simc
           - os: windows-latest
             name: windows
@@ -57,7 +57,7 @@ jobs:
           cp build/simc simc
 
       - name: Build simc (macOS)
-        if: matrix.name == 'macos'
+        if: matrix.name == 'macos-arm64'
         run: |
           cmake -B build \
             -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
@@ -136,8 +136,8 @@ jobs:
           cd ../..
 
           # macOS
-          chmod +x artifacts/simc-macos/simc
-          cd artifacts/simc-macos
+          chmod +x artifacts/simc-macos-arm64/simc
+          cd artifacts/simc-macos-arm64
           tar czf ../../release/simc-macos-arm64.tar.gz simc
           cd ../..
 
