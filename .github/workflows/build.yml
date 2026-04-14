@@ -15,7 +15,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: linux
+            name: linux-x64
+            artifact: simc
+          - os: ubuntu-24.04-arm
+            name: linux-arm64
             artifact: simc
           - os: macos-latest
             name: macos
@@ -40,11 +43,11 @@ jobs:
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies (Linux)
-        if: matrix.name == 'linux'
+        if: startsWith(matrix.name, 'linux')
         run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
 
       - name: Build simc (Linux)
-        if: matrix.name == 'linux'
+        if: startsWith(matrix.name, 'linux')
         run: |
           cmake -B build \
             -DBUILD_GUI=OFF -DBUILD_TESTING=OFF \
@@ -120,10 +123,16 @@ jobs:
           zip ../../release/simc-windows-x64.zip simc.exe
           cd ../..
 
-          # Linux
-          chmod +x artifacts/simc-linux/simc
-          cd artifacts/simc-linux
+          # Linux x64
+          chmod +x artifacts/simc-linux-x64/simc
+          cd artifacts/simc-linux-x64
           tar czf ../../release/simc-linux-x64.tar.gz simc
+          cd ../..
+
+          # Linux arm64
+          chmod +x artifacts/simc-linux-arm64/simc
+          cd artifacts/simc-linux-arm64
+          tar czf ../../release/simc-linux-arm64.tar.gz simc
           cd ../..
 
           # macOS
@@ -145,6 +154,7 @@ jobs:
             |----------|------|
             | Windows x64 | `simc-windows-x64.zip` |
             | Linux x64 | `simc-linux-x64.tar.gz` |
+            | Linux ARM64 | `simc-linux-arm64.tar.gz` |
             | macOS ARM64 | `simc-macos-arm64.tar.gz` |
           files: release/*
           prerelease: ${{ inputs.release_type == 'nightly' }}
