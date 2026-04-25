@@ -8,14 +8,14 @@ on:
       simc_ref:
         required: false
         type: string
-        default: "09842d3ab9"
-        description: "simc commit SHA, tag, or branch (raidbots stable by default)"
+        default: ""
+        description: "simc commit SHA, tag, or branch (blank = master HEAD)"
 
 jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
       release_type: weekly
-      simc_ref: ${{ inputs.simc_ref || '09842d3ab9' }}
+      simc_ref: ${{ inputs.simc_ref || '' }}
     permissions:
       contents: write
