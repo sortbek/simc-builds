@@ -4,11 +4,18 @@ on:
   schedule:
     - cron: "0 0 * * 1"
   workflow_dispatch:
+    inputs:
+      simc_ref:
+        required: false
+        type: string
+        default: "09842d3ab9"
+        description: "simc commit SHA, tag, or branch (raidbots stable by default)"
 
 jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
       release_type: weekly
+      simc_ref: ${{ inputs.simc_ref || '09842d3ab9' }}
     permissions:
       contents: write

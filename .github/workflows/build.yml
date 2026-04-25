@@ -7,6 +7,11 @@ on:
         required: true
         type: string
         description: "nightly or weekly"
+      simc_ref:
+        required: false
+        type: string
+        default: ""
+        description: "simc commit SHA, tag, or branch (blank = master HEAD)"
 
 jobs:
   build:
@@ -35,6 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: simulationcraft/simc
+          ref: ${{ inputs.simc_ref }}
           fetch-depth: 1
 
       - name: Get simc commit SHA
@@ -91,6 +97,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: simulationcraft/simc
+          ref: ${{ inputs.simc_ref }}
           fetch-depth: 1
 
       - name: Get simc commit SHA
@@ -110,7 +117,7 @@ jobs:
           DATE=$(date -u +%Y-%m-%d)
           TYPE="${{ inputs.release_type }}"
           SHA="${{ steps.sha.outputs.sha }}"
-          echo "tag=${TYPE}-${DATE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TYPE}-${DATE}-${SHA}" >> "$GITHUB_OUTPUT"
           echo "name=SimC ${TYPE^} — ${DATE} (${SHA})" >> "$GITHUB_OUTPUT"
 
       - name: Package binaries
